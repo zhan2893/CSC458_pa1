@@ -142,34 +142,64 @@ void sr_handle_ip_packet(struct sr_instance *sr,
     if (sr_ip_des_inlist(sr, ip_hdr->ip_dst)){
         if (ip_hdr->ip_p == ip_protocol_icmp){
             // handle icmp packet
-            sr_handle_icmp_packet(sr, packet, len, interface)
+
+            // need to do icmp check sum first !!!
+
             sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr*)((uint8_t*)(packet + sizeof(struct sr_ethernet_hdr)) + sizeof(struct sr_ip_hdr));
             if (icmp_hdr->icmp_type == 8){
                 // handle type 8 icmp echo req
                 send_icmp_echo_reply(sr, packet, len)
             }
-            else if(ip_hdr->ip_p == ip_)
+            else{
+                return;
+            }
 
+        }
+        // or it is TCP/UDP
+        else if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp){
+            // send type 3 icmp port unreachable
+            send_icmp_port_unreachable(sr, packet, len)
+        }
+    }
+
+    // not for me
+    else{
+        // check whether ttl time exceed
+        if (ip_hdr->ip_ttl - 1 <= 0) {
+            // send type 11 icmp time exceed
+            send_icmp_time_exceeded(sr, packet, len)
         }
         else{
-            return;
+            // check routing table preform LPM
+            ip_hdr->ip_ttl -= 1;
+            ip_hdr->ip_sum = 0;
+            ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+            ip_dst = ip_hdr->ip_dst;
+            if(/* if routing table not match */){
+                // routing table not match
+                // send type 3 icmp net unreachable
+                send_icmp_net_unreachable(sr, packet, len)
+            }
+            else{
+                if(/* check arp cache hit */){
+                    // if hit the entry, send the frame to next hope
+
+                }
+                else{
+                    // send arp request
+                }
+            }
         }
     }
 
-}
 
 
-void sr_handle_icmp_packet(struct sr_instance *sr,
-                         uint8_t *packet/* lent */,
-                         unsigned int len,
-                         char *interface/* lent */){
-    sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr*)((uint8_t*)(packet + sizeof(struct sr_ethernet_hdr)) + sizeof(struct sr_ip_hdr));
-    // if it is an ICMP echo req
-    if (icmp_hdr->icmp_type == 8){
-        // handle type 8 icmp echo req
-    }
 
 }
+
+
+
+
 
 void send_icmp_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned int len){
     uint8_t* icmp_echo_reply_packet = malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t));
