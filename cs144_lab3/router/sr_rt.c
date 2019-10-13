@@ -176,3 +176,39 @@ void sr_print_routing_entry(struct sr_rt* entry)
     printf("%s\n",entry->interface);
 
 } /* -- sr_print_routing_entry -- */
+
+
+/* find next hop ip and interface, return 1 if found */
+int sr_next_hop_ip_and_iface(struct sr_rt *rt, uint32_t ip_dst, uint32_t *next_hop_ip_p, char *iface_out)
+{
+    struct sr_rt *first_entry = 0;
+    struct sr_rt *find_entry = 0;
+    uint32_t find_mask = 0;
+    struct sr_rt *entry = rt;
+
+    int found = 0;
+
+    while(entry){
+        uint32_t mask_addr = entry->mask.s_addr;
+        uint32_t dest_addr = entry->dest.s_addr;
+        if (mask_addr == 0) {
+            first_entry = entry;
+        }
+        else {
+            if (ntohl(mask_addr) > ntohl(find_mask) && (dest_addr&mask_addr) == (ip_dst&mask_addr)) {
+                find_entry = entry;
+                find_mask = mask;
+            }
+        }
+        entry = entry->next
+    }
+    if (find_entry || first_entry)
+        found = 1;
+    if (found) {
+        if (!find_entry)
+            find_entry = first_entry;
+        *next_hop_ip_p = find_entry->gw.s_addr;
+        strncpy(iface_out, match_entry->interface, sr_IFACE_NAMELEN);
+    }
+    return found;
+}
